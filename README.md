@@ -72,3 +72,5 @@ For any technical queries, please open an [issue](https://github.com/espressif/e
 ## Modification
 
 The project has been modified to connect to WiFI. The plan is to allow OTA update and check by changing LED colour using Thingsboard.
+
+Currently the project also hosts a web server where the IP address of the host can be seen. 

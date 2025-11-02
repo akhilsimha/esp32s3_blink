@@ -19,11 +19,15 @@
 #include "esp_http_client.h"
 #include "nvs_flash.h"
 
+#include "esp_event.h"
+#include "esp_netif.h"
+#include "esp_http_server.h"
 
+/* TAG : */
 static const char *TAG = "example";
 
-#define WIFI_SSID      "Vodafone"
-#define WIFI_PASS      ""
+#define WIFI_SSID      "Vodafone-D6EC"
+#define WIFI_PASS      "aMrecckHC9cHqq9y"
 #define OTA_URL        "https://YOUR_THINGSBOARD_URL/api/v1/FIRMWARE_TOKEN/firmware.bin"
 #define ACCESS_TOKEN   ""
 
@@ -37,6 +41,61 @@ static uint8_t s_led_state = 0;
 #ifdef CONFIG_BLINK_LED_STRIP
 
 static led_strip_handle_t led_strip;
+
+/* ------HTML------ */
+/* Handler to return HTML page */
+static esp_err_t root_get_handler(httpd_req_t *req)
+{
+    // Get IP info
+    esp_netif_ip_info_t ip_info;
+    esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+
+    if (netif) {
+        /*This function returns a structure, esp_netif_ip_info_t, that contains the 
+        IPv4 address of the network interface, along with its network mask and gateway 
+        address. */
+        esp_netif_get_ip_info(netif, &ip_info);
+    } else {
+        ESP_LOGW(TAG, "Network interface not found");
+        return ESP_FAIL;
+    }
+
+    char html_response[256];
+    snprintf(html_response, sizeof(html_response),
+             "<!DOCTYPE html><html>"
+             "<head><title>ESP32S3 Info</title></head>"
+             "<body><h1>ESP32S3 Web Server</h1>"
+             "<p>IP Address: %d.%d.%d.%d</p>"
+             "</body></html>",
+             /* Converts IP address to string */
+             IP2STR(&ip_info.ip));
+
+    httpd_resp_set_type(req, "text/html");
+    httpd_resp_send(req, html_response, HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
+
+/* Start web server */
+/* https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/protocols/esp_http_server.html */
+static httpd_handle_t start_webserver(void)
+{
+    httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+    httpd_handle_t server = NULL;
+
+    if (httpd_start(&server, &config) == ESP_OK) {
+        httpd_uri_t uri_root = {
+            .uri = "/",
+            .method = HTTP_GET,
+            .handler = root_get_handler,
+            .user_ctx = NULL
+        };
+        httpd_register_uri_handler(server, &uri_root);
+    }
+
+    return server;
+}
+
+/* --------------- */
 
 static void blink_led(void)
 {
@@ -131,6 +190,12 @@ static void wifi_init(void)
     ESP_ERROR_CHECK(esp_wifi_start());
 
     ESP_LOGI(TAG, "WiFi initialization complete. Connecting to SSID:%s", WIFI_SSID);
+
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
+
+    start_webserver();
+
+    ESP_LOGI(TAG, "Web server started");
 }
 
 /* Call this funcion to perform the OTA, and input argument is the url from thingsboard from where to fetch */
