@@ -1,3 +1,4 @@
 idf_component_register(SRCS "blink_example_main.c"
                        INCLUDE_DIRS "."
-                       REQUIRES esp_wifi esp_event nvs_flash esp_http_client esp_https_ota driver esp_https_server)
+                       REQUIRES esp_wifi esp_event nvs_flash esp_http_client esp_https_ota driver esp_https_server
+                       EMBED_TXTFILES "web_page.html")

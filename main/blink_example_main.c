@@ -23,11 +23,11 @@
 #include "esp_netif.h"
 #include "esp_http_server.h"
 
-/* TAG : */
+/* TAG : Convention used for logging.*/
 static const char *TAG = "example";
 
-#define WIFI_SSID      "Vodafone-D6EC"
-#define WIFI_PASS      "aMrecckHC9cHqq9y"
+#define WIFI_SSID      "Vodafone"
+#define WIFI_PASS      ""
 #define OTA_URL        "https://YOUR_THINGSBOARD_URL/api/v1/FIRMWARE_TOKEN/firmware.bin"
 #define ACCESS_TOKEN   ""
 
@@ -43,35 +43,36 @@ static uint8_t s_led_state = 0;
 static led_strip_handle_t led_strip;
 
 /* ------HTML------ */
+extern const char web_page_html_start[] asm("_binary_web_page_html_start");
+extern const char web_page_html_end[]   asm("_binary_web_page_html_end");
+
 /* Handler to return HTML page */
 static esp_err_t root_get_handler(httpd_req_t *req)
 {
-    // Get IP info
+
+    /* Get the IP address of the ESP32S3 */
     esp_netif_ip_info_t ip_info;
     esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+    esp_netif_get_ip_info(netif, &ip_info);
 
-    if (netif) {
-        /*This function returns a structure, esp_netif_ip_info_t, that contains the 
-        IPv4 address of the network interface, along with its network mask and gateway 
-        address. */
-        esp_netif_get_ip_info(netif, &ip_info);
-    } else {
-        ESP_LOGW(TAG, "Network interface not found");
-        return ESP_FAIL;
-    }
+    char ip_str[32];
+    snprintf(ip_str, sizeof(ip_str), IPSTR, IP2STR(&ip_info.ip));
 
-    char html_response[256];
-    snprintf(html_response, sizeof(html_response),
-             "<!DOCTYPE html><html>"
-             "<head><title>ESP32S3 Info</title></head>"
-             "<body><h1>ESP32S3 Web Server</h1>"
-             "<p>IP Address: %d.%d.%d.%d</p>"
-             "</body></html>",
-             /* Converts IP address to string */
-             IP2STR(&ip_info.ip));
+    /* Calculate HTML size - The difference gives you the number of bytes in the HTML file. */ 
+    size_t html_size = web_page_html_end - web_page_html_start;
+    char *html = malloc(html_size + 64); /* Extra space for replacement */ 
 
+    /* Copy the HTML and insert IP address */ 
+    /* Allocate a buffer slightly larger than the HTML size so that the IP address can safely 
+    be added into it */
+    snprintf(html, html_size + 64, web_page_html_start, ip_str);
+
+    /* Send the response to the web browser */
     httpd_resp_set_type(req, "text/html");
-    httpd_resp_send(req, html_response, HTTPD_RESP_USE_STRLEN);
+    httpd_resp_send(req, html, HTTPD_RESP_USE_STRLEN);
+
+    /* Free memory and return */
+    free(html);
     return ESP_OK;
 }
 
